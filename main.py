@@ -71,7 +71,7 @@ class ARGS(object):
     action_n = 0
     refer_batch_size = 128
 
-    phi_decay = True
+    phi_decay = False
     lr_decay = True
     logger = None
     folder_path = os.getcwd()
@@ -108,12 +108,13 @@ class ARGS(object):
         cls.sigma_init = kwargs["sigma_init"]
         cls.lr_sigma = kwargs["lr_sigma"]
 
-        cls.action_n = env.action_space.n
-        cls.checkpoint_name = cls.gamename.split('N')[0]+"-phi-" + str(cls.phi) + "-lam-" + str(cls.lam) + "-mu-" + str(cls.population_size)
         gamename = cls.gamename.split('N')[0]
-        if gamename == "Alien" or 'Qbert' or 'SpaceInvaders':
+        cls.action_n = env.action_space.n
+        cls.checkpoint_name = gamename+"-phi-" + str(cls.phi) + "-lam-" + str(cls.lam) + "-mu-" + str(cls.population_size)
+        
+        if gamename == 'Alien' or gamename == 'Qbert' or gamename == 'SpaceInvaders':
             cls.eva_times = 10
-        elif gamename == 'Breakout' or 'Seaquest' or 'Freeway':
+        elif gamename == 'Breakout' or gamename == 'Seaquest' or gamename == 'Freeway':
             cls.eva_times = 1
         else:
             cls.eva_times = 3
@@ -273,12 +274,10 @@ def main(ARGS, logger, params):
             best_train_score = rewards_list[best_model_i][best_model_j]
             logger.info("BestTrainScore:%.1f " % (best_train_score))
             
-
-
-            # logger.info("Noopslist(New)  :%s  " % str(test_noop_list))
-            
-            # Update best model only when its test fitness higher than historic one
+            # Update best model 
             test_rewards,test_timestep,test_noop_list,_= test(models_list[best_model_i][best_model_j],pool,env,ARGS,refer_batch_torch)
+
+            timestep_count += np.sum(np.array(test_timestep))
             best_test_new = np.mean(np.array(test_rewards))            
             if best_test_new > best_test_score:
                 # save best model
@@ -289,24 +288,21 @@ def main(ARGS, logger, params):
                 logger.info("Rewardlist(New) :%s  " % str(test_rewards))
                 logger.info("Update best model")
             
-        if g % 5 == 0 :
-            # test current best model
-            test_rewards,test_timestep,test_noop_list,_= test(model_best,pool,env,ARGS,refer_batch_torch)
+        if g % 3 == 0:
+            # test current best model for draw curve
+            test_rewards,_,_,_= test(model_best,pool,env,ARGS,refer_batch_torch)
             test_rewards_mean = np.mean(np.array(test_rewards))
-            logger.info("BestGen(test)    :%.1f" % (g))
-            logger.info("TestModel(test)  :%.1f" % (test_rewards_mean))
-            logger.info("Rewardlist(test) :%s  " % str(test_rewards))
-
-
+            
+            # log for train curve
+            path = os.path.join(ARGS.folder_path,'train_curve.txt')
+            with open(path, "a") as f:
+                out = [str(g),str(timestep_count),str(best_train_score),str(best_test_score),str(np.mean(np.array(test_rewards))),str(np.max(np.array(test_rewards))),str(np.min(np.array(test_rewards)))]
+                sed = ','
+                f.write(sed.join(out)+'\n')
+            
 
         # calculate gradient and update distribution in parallel
-        mean_list, sigma_list = optimize_parallel(g,mean_list,sigma_list,models_list,rewards_list,pool,ARGS)
-     
-        
-        # log for train curve
-        path = os.path.join(ARGS.folder_path,'train_curve.txt')
-        with open(path, "a") as f:
-            f.write(str(g) + "," + str(timestep_count)+ "," + str(best_train_score) + "," + str(best_test_new)+'\n')
+        optimize_parallel(g,mean_list,sigma_list,models_list,rewards_list,pool,ARGS)
 
         # check timestep
         if timestep_count > ARGS.timestep_limit:
@@ -324,16 +320,24 @@ def main(ARGS, logger, params):
     savepath = save(model_best, ARGS.checkpoint_name, ARGS.folder_path,g)
 
 
+@click.command()
+@click.option('--namemark', default='debug')
+@click.option('--ncpu', default=80)
+@click.option('--sigma_init', default=3)
+@click.option('--phi', default=0.0001)
+@click.option('--lr_mean',default=0.2)
+@click.option('--lr_sigma',default=0.1)
+@click.option('--lam',default=4)
+@click.option('--mu',default=15)
 def tune_params(
     namemark,
     ncpu,
-    env_list,
-    mu=15,
-    lam=4,
-    sigma_init=1,
-    lr_mean=0.2,
-    lr_sigma=0.01,
-    phi=0.0001,
+    mu,
+    lam,
+    sigma_init,
+    lr_mean,
+    lr_sigma,
+    phi,
 ):
     """Set parameters for tuning.   
     Set up logger and folder path.    
@@ -351,6 +355,8 @@ def tune_params(
         phi(float):        Negative correlation.
     """
     # set input parameters
+    env_list = ["BeamRider"]
+
     ARGS.env_type = "atari"
     ARGS.namemark = namemark
     ARGS.ncpu = ncpu
@@ -386,10 +392,10 @@ def tune_params(
             main(ARGS, logger, params)
             print("finish idx %s : %s for game:%s" % (idx, str(params), game))
             idx += 1
-            draw_train_curve(game,ARGS)
+            # draw_train_curve(game,ARGS)
 
 def draw_train_curve(game,ARGS):
-    path = ARGS.folder_path + "train_curve.txt"
+    path = ARGS.folder_path + "/train_curve.txt"
     
     with open(path,'r') as f:
         lines = f.readlines()
@@ -417,34 +423,24 @@ def draw_train_curve(game,ARGS):
 if __name__ == "__main__":
     # gamelist
     # envs_list = ["Qbert", "Enduro", "Breakout", "Venture", "Freeway",'Alien','Seaquest','SpaceInvaders']
-    envs_list = ["Freeway"]
+    # envs_list = ["BeamRider"]
 
     # parameters:
-    namemark = "tuning"
-    ncpu = 85
-    mu = 15  # population_size
-    lam = 5  # numbers of population
-    sigma_init = 2
-    lr_mean = 0.2
-    lr_sigma = 0.1
-    phi = 0.0001 
+    # namemark = "tuning"
+    # ncpu = 85
+    # mu = 15  # population_size
+    # lam = 5  # numbers of population
+    # sigma_init = 2
+    # lr_mean = 0.5
+    # lr_sigma = 0.1
+    # phi = 0.00001 
 
     # seaquest lr_mean = 1 lr_sigma = 1 phi = 0.001 eva = 3 lam = 4 mu = 4
     # alien lr_mean = 1
     # qbert lr_sigma = 0.1 lr_mean = 0.2 phi = 0.001 5300
-    # freeway & Enduro sigma = 3 lr_mean = 0.2 lr_sigma = 0.1 eva = 5 mu = 15 lam = 5 phi = 0.001 fixed
+    # freeway & Enduro sigma = 2 lr_mean = 0.2 lr_sigma = 0.1 eva = 3 mu = 15 lam = 5 phi = 0.001 fixed
     # breakout 同上 phi = 0.0001 eva = 3 sigma_init = 3 mu = 15
 
-    tune_params(
-        namemark,
-        ncpu,
-        envs_list,
-        mu,
-        lam,
-        sigma_init,
-        lr_mean,
-        lr_sigma,
-        phi,
-    )
+    tune_params()
 
     

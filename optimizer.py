@@ -172,7 +172,6 @@ def optimize(gen,idx,mean, sigma, model_list, mean_list, sigma_list, rewards,ARG
         mean[name] = torch.clamp(mean[name],ARGS.L,ARGS.H)
 
     log_info(gen,mean,sigma,idx,fmean,fsigma,fishermean,fishersigma,dmean,dsigma,mean_grad,sigma_grad,ARGS.folder_path)
-    return mean,sigma
 
 
 def optimize_parallel(gen,mean_list,sigma_list,model_list,rewards,pool,ARGS):
@@ -182,8 +181,7 @@ def optimize_parallel(gen,mean_list,sigma_list,model_list,rewards,pool,ARGS):
     for i in range(ARGS.lam):
         mean = mean_list[i]
         sigma = sigma_list[i]
-        mean,sigma = optimize(gen,i,mean,sigma,model_list[i],save_mean_list,save_sigma_list,rewards[i],ARGS)
-    return mean_list,sigma_list
+        optimize(gen,i,mean,sigma,model_list[i],save_mean_list,save_sigma_list,rewards[i],ARGS)
 
 
 

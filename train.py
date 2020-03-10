@@ -16,6 +16,7 @@ import os
 import copy
 
 from model import build_model
+# from test import build_model
 from preprocess import ProcessUnit
 from gym import wrappers, logger
 from optimizer import check_bound

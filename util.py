@@ -17,6 +17,7 @@ import time
 
 from model import build_model
 
+
 def load(check_point_name,model_storage_path,ARGS):
     '''Load model from .pt file.  
     Args:  
@@ -39,8 +40,6 @@ def save(model_best, checkpoint_name,model_storage_path,gen):
     save_path = os.path.join(model_storage_path, checkpoint_name+str(gen)+'.pt')
     torch.save(model_best.state_dict(), save_path)
     return save_path
-
-
 
 def setup_logging(logger,folder_path,filename,txtlog=True,scrlog=False):
     """Create and init logger. 
@@ -82,6 +81,7 @@ def setup_logging(logger,folder_path,filename,txtlog=True,scrlog=False):
         logger.addHandler(console_handler)
 
     return logger
+
 def mk_folder(LogFolder):
     '''make folder to save log'''
     timenow = time.localtime(time.time())

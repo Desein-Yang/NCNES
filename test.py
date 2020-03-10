@@ -268,15 +268,16 @@ class Net(nn.Module):
         out = out.view(-1,out.size(0))
         return F.softmax(out, dim=1)
 
-# def build_model(ARGS):
-#     """
-#     Args:
-#         action_n(int):    Available action numbers of one game
-#     Returns:   
-#         ESNet(nn.Module): Neural network module with specified architecture
-#     """
-#     if ARGS.env_type == "atari":
-#         return Net(ARGS)
+def build_model(ARGS):
+    """
+    Args:
+        action_n(int):    Available action numbers of one game
+    Returns:   
+        ESNet(nn.Module): Neural network module with specified architecture
+    """
+    return Net(ARGS)
+
+
 def add_noise(model,mean,sigma):
 
     with torch.no_grad():
@@ -325,11 +326,7 @@ if __name__ == "__main__":
 
     pool = mp.Pool(processes=ARGS.ncpu)
     rewards_list = np.random.randint(0,200,size = (ARGS.lam,ARGS.population_size))
-    # mean = mean_list[0]
-    # sigma = sigma_list[0]
-    # optimize(i,0,mean,sigma,model_list[0],mean_list,sigma_list,rewards_list[0],ARGS)
 
-    
     for i in range(10):
         # for idx,models in enumerate(model_list):
         #     for j,model in enumerate(models):
@@ -344,3 +341,6 @@ if __name__ == "__main__":
         )
         # rewards_list = reward(rewards_list,ARGS.lam,ARGS.population_size)
         optimize_parallel(i,mean_list,sigma_list,models_list,rewards_list,pool,ARGS)
+
+        print(mean)
+        print(sigma)
