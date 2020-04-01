@@ -88,7 +88,9 @@ def log_info(gen,mean,sigma,idx,fitm,fits,fisherm,fishers,divm,divs,gradm,grads,
 
 def optimize(gen,idx,mean, sigma, model_list, mean_list, sigma_list, rewards,ARGS):
     # scale_rewards = reward_scale(rewards)
-    rank = np.argsort(rewards)[::-1] + 1 # rank kid by reward
+    rank = [0 for i in range(len(rewards))]
+    for r,i in enumerate(np.argsort(rewards)[::-1]):
+        rank[i] = r + 1  # rank kid by reward
     mu = ARGS.population_size
     util_ = np.maximum(0, np.log(mu / 2 + 1) - np.log(rank))
     utility = (util_ / (util_.sum())) - (1 / mu)
@@ -172,18 +174,25 @@ def optimize(gen,idx,mean, sigma, model_list, mean_list, sigma_list, rewards,ARG
         mean[name] = torch.clamp(mean[name],ARGS.L,ARGS.H)
 
     log_info(gen,mean,sigma,idx,fmean,fsigma,fishermean,fishersigma,dmean,dsigma,mean_grad,sigma_grad,ARGS.folder_path)
+    return True
 
+# def optimize_replaced(gen,idx,mean, sigma, model_list, mean_list, sigma_list, rewards,ARGS):
+#     rank = np.argsort(rewards)[::-1] + 1 # rank kid by reward
 
 def optimize_parallel(gen,mean_list,sigma_list,model_list,rewards,pool,ARGS):
     save_mean_list = copy.deepcopy(mean_list)
     save_sigma_list = copy.deepcopy(sigma_list)
+    jobs = [
+        pool.apply_async(
+        optimize,
+        (gen,i,mean_list[i],sigma_list[i],model_list[i],save_mean_list,save_sigma_list,rewards[i],ARGS)
+        ) for i in range(ARGS.lam)
+    ]   
 
-    for i in range(ARGS.lam):
-        mean = mean_list[i]
-        sigma = sigma_list[i]
-        optimize(gen,i,mean,sigma,model_list[i],save_mean_list,save_sigma_list,rewards[i],ARGS)
-
-
-
-
-
+    done = []
+    for job in jobs:
+        done.append(job.get())
+    #for i in range(ARGS.lam):
+    #    mean = mean_list[i]
+    #    sigma = sigma_list[i]
+    #    optimize(gen,i,mean,sigma,model_list[i],save_mean_list,save_sigma_list,rewards[i],ARGS)

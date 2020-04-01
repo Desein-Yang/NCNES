@@ -71,8 +71,9 @@ class ARGS(object):
     action_n = 0
     refer_batch_size = 128
 
-    phi_decay = False
+    phi_decay = True
     lr_decay = True
+    eva_time_decay = True
     logger = None
     folder_path = os.getcwd()
     checkpoint_name = ""
@@ -94,6 +95,7 @@ class ARGS(object):
         logger.info("timestep limit:%s" % cls.timestep_limit)
         logger.info("lr decay enable ?:%s" % cls.lr_decay)
         logger.info("phi decay enable ?:%s" % cls.phi_decay)
+        logger.info("evatime decay enable ?:%s" % cls.eva_time_decay)
         logger.info("H: %s; L: %s" % (cls.L, cls.H))
         logger.info("EvaluateTimes %s" % cls.eva_times)
 
@@ -112,23 +114,17 @@ class ARGS(object):
         cls.action_n = env.action_space.n
         cls.checkpoint_name = gamename+"-phi-" + str(cls.phi) + "-lam-" + str(cls.lam) + "-mu-" + str(cls.population_size)
         
-        if gamename == 'Alien' or gamename == 'Qbert' or gamename == 'SpaceInvaders':
-            cls.eva_times = 10
-        elif gamename == 'Breakout' or gamename == 'Seaquest' or gamename == 'Freeway':
+        if gamename in ['Alien','Qbert','SpaceInvaders','BeamRider']:
+            cls.eva_times = 5
+        elif gamename in ['Breakout','Seaquest']:
             cls.eva_times = 1
         else:
             cls.eva_times = 3
-        if gamename == 'SpaceInvaders':
-            cls.FRAME_SKIP = 3
-    
-    @classmethod
-    def set_recommend(cls,model_size):
-        """set up recommmand set"""
-        # cls.lr_mean = 1
-        # cls.lr_sigma = 0.001
-        pass
-        # cls.lr_sigma = (3+math.log(model_size)) / 5 / math.sqrt(model_size)
-        # cls.sigma_init = (cls.H - cls.L) / cls.lam
+            cls.population_size = 10
+        if gamename in ['Freeway','Enduro']:
+            cls.phi = 0.001
+        elif gamename in ['BeamRider','SpaceInvaders']:
+            cls.phi = 0.00001
 
     @classmethod
     def set_logger(cls, logger):
@@ -138,7 +134,9 @@ class ARGS(object):
     def set_gamename(cls, gamename):
         if cls.env_type == "atari":
             cls.gamename = "%sNoFrameskip-v4" % gamename
-    
+            #cls.gamename = "%sDeterministic-v4" % gamename
+            
+
     @classmethod
     def set_folder_path(cls,folder_path):
         cls.folder_path = folder_path
@@ -203,8 +201,10 @@ def main(ARGS, logger, params):
 
     # set up random seed 
     # torch.manual_seed(time.time())
-    # np.random.seed(123456)
+    # np.random.seed(111)
     # seed = np.random.randint(0, 1000000)
+    seed = [np.random.randint(1,1000000) for i in range(ARGS.population_size)]
+    logger.info("seed:%s", str(seed))
     # env.seed(123456)
 
     # init best and timestep
@@ -214,7 +214,6 @@ def main(ARGS, logger, params):
     model_best = build_model(ARGS)
     model_best.set_parameter_no_grad()
     model_size = model_best.get_size()
-    ARGS.set_recommend(model_size)
     ARGS.output()
 
     # init population
@@ -244,24 +243,36 @@ def main(ARGS, logger, params):
         if ARGS.phi_decay:
             ARGS.phi = ARGS.phi * (math.e - math.exp(percent)) / (math.e - 1)
 
+        if ARGS.eva_time_decay:
+            ARGS.eva_times = int(ARGS.eva_times * percent)
+            if ARGS.eva_times < 1:
+                ARGS.eva_times = 1
+            if ARGS.eva_times > 10:
+                ARGS.eva_times = 10
+
         # sample and evaluate
+
         rewards_list, frame_count, models_list, noops_list, detail_rewards = train(
             mean_list,
             sigma_list,
             pool,env,
             ARGS,
-            refer_batch_torch
+            refer_batch_torch,
+            seed
         )
         timestep_count += frame_count
+        rewardlist_mean = [np.mean(rewards_list[i]) for i in range(ARGS.lam)]
+        rewardlist_var = [np.var(rewards_list[i]) for i in range(ARGS.lam)]
         logger.info("=============================================")
         logger.info("Gen            :%2d " % g)
         logger.info("Framecount     :%9d " % (frame_count))
         logger.info("AllFramecount  :%s/%s" % (timestep_count,ARGS.timestep_limit))
         logger.info("Rewardlist     :%s " % str(rewards_list))
-        logger.info("Rewardlist mean:%s " % str(np.mean(np.array(rewards_list))))
-        logger.info("Rewardlist var:%s " % str(np.var(np.array(rewards_list))))
-        # logger.info("Noopslist      :%s " % str(noops_list))
-        # logger.info("DetailReward   :%s " % str(detail_rewards))
+        logger.info("Noops list     :%s " % str(noops_list))
+        logger.info("Rewardlist mean:%s " % str(rewardlist_mean))
+        logger.info("Rewardlist var :%s " % str(rewardlist_var))
+        logger.info("DetailReward   :%s " % str(detail_rewards))
+
         
         # save best one model
         index = np.array(rewards_list).argmax()
@@ -277,16 +288,15 @@ def main(ARGS, logger, params):
             # Update best model 
             test_rewards,test_timestep,test_noop_list,_= test(models_list[best_model_i][best_model_j],pool,env,ARGS,refer_batch_torch)
 
-            timestep_count += np.sum(np.array(test_timestep))
             best_test_new = np.mean(np.array(test_rewards))            
-            if best_test_new > best_test_score:
-                # save best model
-                best_test_score = best_test_new
-                savepath = save(models_list[best_model_i][best_model_j],ARGS.checkpoint_name,ARGS.folder_path,g)
-                model_best.load_state_dict(torch.load(savepath))
-                logger.info("BestTest(New)   :%.1f" % (best_test_score))
-                logger.info("Rewardlist(New) :%s  " % str(test_rewards))
-                logger.info("Update best model")
+            # if best_test_new > best_test_score:
+            # save best model
+            best_test_score = best_test_new
+            savepath = save(models_list[best_model_i][best_model_j],ARGS.checkpoint_name,ARGS.folder_path,g)
+            model_best.load_state_dict(torch.load(savepath))
+            logger.info("BestTest(New)   :%.1f" % (best_test_score))
+            logger.info("Rewardlist(New) :%s  " % str(test_rewards))
+            logger.info("Update best model")
             
         if g % 3 == 0:
             # test current best model for draw curve
@@ -321,14 +331,15 @@ def main(ARGS, logger, params):
 
 
 @click.command()
-@click.option('--namemark', default='debug')
-@click.option('--ncpu', default=80)
-@click.option('--sigma_init', default=3)
-@click.option('--phi', default=0.0001)
+@click.option('--namemark', default='final')
+@click.option('--ncpu', default=40)
+@click.option('--sigma_init', default=2)
+@click.option('--phi', default=0.00001)
 @click.option('--lr_mean',default=0.2)
 @click.option('--lr_sigma',default=0.1)
-@click.option('--lam',default=4)
+@click.option('--lam',default=5)
 @click.option('--mu',default=15)
+@click.option('--game',defalu='Freeway')
 def tune_params(
     namemark,
     ncpu,
@@ -338,6 +349,7 @@ def tune_params(
     lr_mean,
     lr_sigma,
     phi,
+    game
 ):
     """Set parameters for tuning.   
     Set up logger and folder path.    
@@ -355,7 +367,7 @@ def tune_params(
         phi(float):        Negative correlation.
     """
     # set input parameters
-    env_list = ["BeamRider"]
+    # env_list = ["BeamRider"]
 
     ARGS.env_type = "atari"
     ARGS.namemark = namemark
@@ -383,15 +395,14 @@ def tune_params(
 
     # set logger handler and run main
     logger = logging.getLogger(__name__)
-    for game in env_list:
-        for params in kwargs_list:
-            ARGS.set_gamename(game)
-            ARGS.set_folder_path(folder_path)
-            logfile = (namemark + "-" + game + "-phi-" + str(params["phi"])+'.txt')
-            logger = setup_logging(logger, folder_path, logfile)
-            main(ARGS, logger, params)
-            print("finish idx %s : %s for game:%s" % (idx, str(params), game))
-            idx += 1
+    for params in kwargs_list:
+        ARGS.set_gamename(game)
+        ARGS.set_folder_path(folder_path)
+        logfile = (namemark + "-" + game + "-phi-" + str(params["phi"])+'.txt')
+        logger = setup_logging(logger, folder_path, logfile)
+        main(ARGS, logger, params)
+        print("finish idx %s : %s for game:%s" % (idx, str(params), game))
+        idx += 1
             # draw_train_curve(game,ARGS)
 
 def draw_train_curve(game,ARGS):
@@ -440,6 +451,7 @@ if __name__ == "__main__":
     # qbert lr_sigma = 0.1 lr_mean = 0.2 phi = 0.001 5300
     # freeway & Enduro sigma = 2 lr_mean = 0.2 lr_sigma = 0.1 eva = 3 mu = 15 lam = 5 phi = 0.001 fixed
     # breakout 同上 phi = 0.0001 eva = 3 sigma_init = 3 mu = 15
+	# beamrider mean, sigma 0.5 0.1
 
     tune_params()
 

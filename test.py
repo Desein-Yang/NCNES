@@ -21,6 +21,7 @@ import time
 # 2
 
 
+
 # TODO: Test get reward_atari and test() (don't parallel)
 # if __name__ == "__main__":
 #     # distribute training in parallel

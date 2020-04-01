@@ -11,22 +11,33 @@ This repository contains PyTorch implementations of Deep Reinforcement Learning 
 All Dependency can be imported by anaconda environment with environment.yml
 
 #### Usage
-```python main.py
+```
+python main.py 
+-game     [Freeway,Enduro,Qbert,Alien...]
+-ncpu     default = 40 
+-lr_mean  default= 0.2 
+-lr_sigma default = 0.1 
+-phi      default= 0.0001 
+-sigma_init default= 2  
+-eva      defalut = 3  
+-lam      default = 5 
+-mu       default = 15
 ```
 
 #### File Tree
 ├── readme.md                   // help  
 ├── log                         // log  
 │   ├── namemark-time-phi-ft    // log  
-│   ├── namemark-game-seed.pt   // pytorch saved model  
-│   └── state.txt               // state log  
+│   ├── namemark-game-seed.pt   // pytorch saved model 
+│   ├── state.txt               // state log 
+│   └── train_curve.txt    // log for train curve
 ├── __init__.py                 // init file  
-├── environment.yml             // dependenct Installation file  
+├── environment.yml             // dependenct Installation file 
 ├── main.py                     // run  
 ├── model.py                    // class of neural network (model)  
-├── noisetable.py               // class of shared noise table  
+├── noisetable.py               // class of shared noise table 
 ├── optimizer.py                // class of gaussian distribution optimizer  
-├── preprocess.py               // class of preprocess transform  
+├── preprocess.py               // class of preprocess transform 
 ├── train.py                    // train and test function  
 ├── util.py                     // other function  
 └── vbn                         // class and function about vitural batch   normalization  
@@ -42,6 +53,7 @@ All Dependency can be imported by anaconda environment with environment.yml
 8. 修改noise获取        get reward atari 改成noise 临时取样再保存,train simulate 也是直接保存 model，noisetable删除
 9. 修改optimizer        d,f,fisher 整合到optimizer中
 10. 修改logger          logging 修改为同时输出到屏幕和文件
+11. 修改
 
 #### Reference
 \[1\] Peng Yang, Ke Tang, Xin Yao, "Negatively Correlated Search as a Parallel Exploration Search Strategy", arXiv-https://arxiv.org/abs/1910.07151, 2019

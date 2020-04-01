@@ -118,6 +118,8 @@ def get_reward_atari(
                 ep_r += reward
                 if done:
                     break_is_true = True
+                if render:
+                    env.render()
             if break_is_true:
                 break
         ep_r_list.append(ep_r)
@@ -130,7 +132,7 @@ def get_reward_atari(
 
 
 
-def train(mean_list, sigma_list, pool, env, ARGS, refer_batch):
+def train(mean_list, sigma_list, pool, env, ARGS, refer_batch, seed):
     """Evaluates all offsprings of all populations in parallel.   
     Args:   
         mean_list(list):    Gauss distribution mean (params state dict) of all population (lam x 1)   
@@ -152,7 +154,7 @@ def train(mean_list, sigma_list, pool, env, ARGS, refer_batch):
         sigma = sigma_list[idx]
         jobs = None
         model = build_model(ARGS)
-        seed = [np.random.randint(1,1000000) for i in range(ARGS.population_size)]
+        #seed = [np.random.randint(1,1000000) for i in range(ARGS.population_size)]
         # create multiprocessing jobs
         jobs = [
                 pool.apply_async(
