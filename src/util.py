@@ -15,7 +15,7 @@ import pickle
 import logging
 import time
 
-from model import build_model
+from src.model import build_model
 
 
 def load(check_point_name,model_storage_path,ARGS):
@@ -82,18 +82,18 @@ def setup_logging(logger,folder_path,filename,txtlog=True,scrlog=False):
 
     return logger
 
-def mk_folder(LogFolder,args):
+def mk_folder(LogFolder):
     '''make folder to save log'''
     timenow = time.localtime(time.time())
     indx = 1
-    GameFolder = os.path.join(LogFolder,gamename)
-    if gamename not in os.listdir(LogFolder):
-        os.mkdir(GameFolder)
+    #GameFolder = os.path.join(LogFolder,gamename)
+    #if gamename not in os.listdir(LogFolder):
+    #    os.mkdir(GameFolder)
     logfolder = str(timenow.tm_year)+'-'+str(timenow.tm_mon)+'-'+str(timenow.tm_mday)+'-'+str(indx)
-    while logfolder in os.listdir(GameFolder):
+    while logfolder in os.listdir(LogFolder):
         indx += 1
         logfolder = str(timenow.tm_year)+'-'+str(timenow.tm_mon)+'-'+str(timenow.tm_mday)+'-'+str(indx)
-    logfolder_path = os.path.join(GameFolder, logfolder)
+    logfolder_path = os.path.join(LogFolder, logfolder)
     os.mkdir(logfolder_path)
     print("make folder:", logfolder_path)
     return logfolder_path

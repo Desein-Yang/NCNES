@@ -11,49 +11,49 @@ This repository contains PyTorch implementations of Deep Reinforcement Learning 
 All Dependency can be imported by anaconda environment with environment.yml
 
 #### Usage
-```
+```python main.py
 python main.py 
 -game     [Freeway,Enduro,Qbert,Alien...]
--ncpu     default = 40 
--lr_mean  default= 0.2 
--lr_sigma default = 0.1 
--phi      default= 0.0001 
--sigma_init default= 2  
--eva      defalut = 3  
--lam      default = 5 
--mu       default = 15
+-ncpu     numbers of cpu. default = 40 
+-lr_mean  learning rate of mean. default= 0.2 
+-lr_sigma laerning rate of sigma. default = 0.1 
+-phi      negative correlated search factor.default= 0.0001 
+-sigma_init initialization value of sigma. default= 2  
+-eva      max evaluate times.defalut = 3  
+-lam      numbers of population size. default = 5 
+-mu       numbers of offsprings in a population. default = 15
 ```
 
 #### File Tree
 ├── readme.md                   // help  
 ├── log                         // log  
 │   ├── namemark-time-phi-ft    // log  
-│   ├── namemark-game-seed.pt   // pytorch saved model 
-│   ├── state.txt               // state log 
-│   └── train_curve.txt    // log for train curve
-├── __init__.py                 // init file  
-├── environment.yml             // dependenct Installation file 
-├── main.py                     // run  
-├── model.py                    // class of neural network (model)  
-├── noisetable.py               // class of shared noise table 
-├── optimizer.py                // class of gaussian distribution optimizer  
-├── preprocess.py               // class of preprocess transform 
-├── train.py                    // train and test function  
-├── util.py                     // other function  
-└── vbn                         // class and function about vitural batch   normalization  
-
+│   ├── namemark-game-seed.pt   // pytorch saved model   
+│   └── state.txt               // state log  
+├── src  
+│   ├──__init__.py              // init file  
+│   ├── model.py                // class of neural network (model)   
+│   ├── optimizer.py            // optimize and update function   
+│   ├── preprocess.py           // class of preprocess transform  
+│   ├── train.py                // train and test function   
+│   ├── util.py                 // other function   
+│   └── vbn.py                  // class and function about vitural batch   
+├── environment.yml             // dependenct Installation file   
+├── main.py                     // run   
+└── main_serial.py              // run serially  
+  
 #### Update log
-1. 指定随机帧           增加了可修改和查看每次 reward 对应的随机帧
-2. 修改权重方式         pytorch 修改权重方式tmp取值改为named_parameters, params.data
-3. 修改随机数种子       pytorch随机数种子改为每次修改模型时当前时间取样，env seed, np.random, torch seed改为 time.time()
-4. 删除SGD             未采用SGD方式
-5. 新增 build_mean     用于建立高斯分布字典，其初始化过程为mean= L + (H-L) *rand
-6. 删除 mirror sample   不使用mirror sample noise机制
-7. 修改ARGS            folderpath, checkpointname 整合到 ARGS 参数
-8. 修改noise获取        get reward atari 改成noise 临时取样再保存,train simulate 也是直接保存 model，noisetable删除
-9. 修改optimizer        d,f,fisher 整合到optimizer中
-10. 修改logger          logging 修改为同时输出到屏幕和文件
-11. 修改
+1. Fixed noop frame           Add function to view and change the 30-no-ops frame setting and every no op setting corresponding to episode will be logged. 
+2. Modified weight update     Weight update by `named_parameters` and `params.data` rather than `tmp = getsttr(tmp)`.
+3. Modified random seed       Random seed are not fixed. Env seed, np.random, torch seed use `time.time()`.
+4. Delete SGD optimizer       Delete SGD optimier and update directly.
+5. Add `build_mean()`         To build gaussian distribution dictionary and initialize mean of Gaussian as `mean= L + (H-L) *rand`
+6. Detele mirror sample       Delete mirror sample noise.
+7. Modified `ARGS` class        Add set folderpath and checkpointname 
+8. Modified sample noise      In `get reward atari()` ,noise are sampled directly rather than noise table and saved. Delete noise table.
+9. Modified `optimize`         Diversity,fitness,fisher are incoporated into `optimize`.
+10. Modified `logger`          Output logging in a more readable way.
+11. Add `main_serial`          Run main in single process.
 
 #### Reference
 \[1\] Peng Yang, Ke Tang, Xin Yao, "Negatively Correlated Search as a Parallel Exploration Search Strategy", arXiv-https://arxiv.org/abs/1910.07151, 2019

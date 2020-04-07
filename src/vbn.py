@@ -13,11 +13,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.nn.init as init
-
-from preprocess import ProcessUnit
-
 import numpy as np
-
+from src.preprocess import ProcessUnit
 
 class VirtualBatchNorm2D(nn.Module):
     """Virtual Batch Normalization layer.  
@@ -127,7 +124,8 @@ def one_explore_for_vbn(env, prob, args):
         ProcessU.step(observation)
         if np.random.rand() <= prob:
             r.append(ProcessU.to_torch_tensor())
-
+    if done:
+        env.reset()
     for step in range(ep_max_step):
         action = np.random.randint(n_action)
         for i in range(args.FRAME_SKIP):

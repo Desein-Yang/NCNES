@@ -15,11 +15,11 @@ import torch
 import os 
 import copy
 
-from model import build_model
-# from test import build_model
-from preprocess import ProcessUnit
 from gym import wrappers, logger
-from optimizer import check_bound
+from src.model import build_model
+# from test import build_model
+from src.preprocess import ProcessUnit
+from src.optimizer import check_bound
 
 
 
@@ -116,10 +116,10 @@ def get_reward_atari(
                 ProcessU.step(observation)
                 frame_count += 1
                 ep_r += reward
+                if render:
+                    env.render('rgb_array')
                 if done:
                     break_is_true = True
-                if render:
-                    env.render()
             if break_is_true:
                 break
         ep_r_list.append(ep_r)
@@ -130,10 +130,8 @@ def get_reward_atari(
     else:
         return ep_r, frame_count, model, no_op, ep_r_list
 
-
-
 def train(mean_list, sigma_list, pool, env, ARGS, refer_batch, seed):
-    """Evaluates all offsprings of all populations in parallel.   
+    """Evaluates all offsprings of all populations in parallel by offspring seperately.   
     Args:   
         mean_list(list):    Gauss distribution mean (params state dict) of all population (lam x 1)   
         sigma_list(list):    Gauss distribution sigma (params state dict)of all population (lam x 1)   
@@ -189,6 +187,62 @@ def train(mean_list, sigma_list, pool, env, ARGS, refer_batch, seed):
     frame_count = np.sum(np.array(frame_list))
     return rewards_list, frame_count, models_list, noops_list, detail_rewards_list
 
+def train_serial(mean_list, sigma_list, env, ARGS, refer_batch, seed):
+    """Evaluates all models one by one. """
+    rewards_list, frame_list, models_list, noop_list, detail_rewards_list= [],[],[],[],[]
+    for idx, mean in enumerate(mean_list):
+        sigma = sigma_list[idx]
+        rewards ,frames, models, noops, detail_rewards= [],[],[],[],[]
+        for k_id in range(ARGS.population_size):
+            basemodel = build_model(ARGS)
+            ep_r, frame, model, noop, ep_r_list = get_reward_atari(basemodel,mean,sigma,env,seed[k_id],ARGS,refer_batch,None,False,False)
+            rewards.append(ep_r)
+            frames.append(frame)
+            models.append(model)
+            noops.append(noop)
+            detail_rewards.append(ep_r_list)
+        rewards_list.append(rewards)
+        frame_list.append(frames)
+        models_list.append(models)
+        noop_list.append(noops)
+        detail_rewards_list.append(detail_rewards)
+    frame_count = np.sum(np.array(frame_list))
+    return rewards_list, frame_count, models_list, noop_list, detail_rewards_list        
+                  
+def train_parallel(mean_list, sigma_list, pool, env, ARGS, refer_batch, seed):
+    """Evaluates all offsprings of all populations in parallel by population seperately.""" 
+    rewards_list,frame_list,models_list,noops_list,detail_rewards_list= [],[],[],[],[]
+    for idx, mean in enumerate(mean_list):
+        sigma = sigma_list[idx]
+        jobs = []
+        model = build_model(ARGS)
+        
+        #seed = [np.random.randint(1,1000000) for i in range(ARGS.population_size)]
+        # create multiprocessing jobs of population
+        for k_id in range(ARGS.population_size):
+            jobs.append(pool.apply_async(
+                        get_reward_atari,
+                        (model,mean,sigma,env,seed[k_id],ARGS,refer_batch,None,False,False,)
+                    )) 
+        
+        rewards ,frames, models, noops, detail_rewards= [],[],[],[],[]
+        for j in jobs:
+            rewards.append(j.get()[0])
+            frames.append(j.get()[1])
+            models.append(j.get()[2])
+            noops.append(j.get()[3])
+            detail_rewards.append(j.get()[4])
+        rewards_list.append(rewards)
+        frame_list.append(frames)
+        models_list.append(models)
+        noops_list.append(noops)
+        detail_rewards_list.append(detail_rewards)   
+             
+    frame_count = np.sum(np.array(frame_list))
+    return rewards_list, frame_count, models_list, noops_list, detail_rewards_list            
+
+
+
 def test(model, pool, env, ARGS, reference, noop=None, test_times=30, render=False):
     """Evaluate all offsprings in parallel.   
     Args:   
@@ -211,7 +265,7 @@ def test(model, pool, env, ARGS, reference, noop=None, test_times=30, render=Fal
     jobs = [
         pool.apply_async(
             get_reward_atari,
-            (model, None, None, env,seed[i], ARGS, reference, noop, True, False))
+            (model, None, None, env,seed[i], ARGS, reference, noop, True, render))
         for i in range(test_times)
     ]
     rewards_list = []
@@ -224,6 +278,8 @@ def test(model, pool, env, ARGS, reference, noop=None, test_times=30, render=Fal
         noop_list.append(j.get()[2])
         detail_rewards_list.append(j.get()[3])
     return rewards_list,times_list, noop_list, detail_rewards_list
+
+
 
 
 

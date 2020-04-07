@@ -15,7 +15,7 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from vbn import VirtualBatchNorm2D, VirtualBatchNorm1D
+from src.vbn import VirtualBatchNorm2D, VirtualBatchNorm1D
 from collections import deque
 
 
@@ -104,7 +104,8 @@ class ESNet(nn.Module):
             # Orthogonal initialization and layer scaling
             # Paper name : Implementation Matters in Deep Policy Gradient: A case study on PPO and TRPO
             if isinstance(m,(nn.Linear,nn.Conv2d)):
-                nn.init.orthogonal_(m.weight)
+                #nn.init.orthogonal_(m.weight)
+                nn.init.uniform_(m.weight)
                 if m.bias is not None:
                     m.bias.data.zero_()
 
@@ -154,4 +155,33 @@ def build_model(ARGS):
     if ARGS.env_type == "atari":
         return ESNet(ARGS)
 
+def build_sigma(model: torch.nn.Module, ARGS):
+    """Build a dict to store sigma of all params.  
+    Args:  
+        model(nn.Module):   Network module of offspring.
+        ARGS:               Sigma init value.
+    Returns:  
+        sigma_dict(dict):   Dict of sigma of all params.
+    Init:  
+        ones_like tensor * sigma_init.
+    """
+    sigma_dict = {}
+    for name, parameter in model.named_parameters():
+        sigma_dict[name] = torch.ones_like(parameter,dtype = torch.float) * ARGS.sigma_init
+    return sigma_dict
 
+def build_mean(model: torch.nn.Module,ARGS):
+    """Build a dict to store mean of all params.  
+    Args:  
+        model(nn.Module):   Network module of offspring.
+        ARGS:               High limit and low limit
+    Returns:  
+        mean_dict(dict):    Dict of mean of all params.  
+    Init:
+        mean= L + (H-L) *rand
+    """
+    mean_dict = {}
+    for name, parameter in model.named_parameters():
+        mean_dict[name] = torch.ones_like(parameter,dtype=torch.float) * ARGS.L + (ARGS.H - ARGS.L) * torch.rand_like(parameter,dtype=torch.float)
+        mean_dict[name] = torch.clamp(mean_dict[name],ARGS.L,ARGS.H)
+    return mean_dict

@@ -223,13 +223,14 @@ from torch import nn
 import torch.nn.functional as F
 import torch.multiprocessing as mp
 from main import build_mean,build_sigma,ARGS
-from train import train,test
-from optimizer import check_bound,optimize_parallel,optimize
-from vbn import explore_for_vbn
 import numpy as np
 import time
 import gym
-from model import build_model
+
+from src.model import build_model
+from src.train import train,test
+from src.optimizer import check_bound,optimize_parallel,optimize
+from src.vbn import explore_for_vbn
 
 class Net(nn.Module):
     def __init__(self, ARGS):

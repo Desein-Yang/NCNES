@@ -196,3 +196,9 @@ def optimize_parallel(gen,mean_list,sigma_list,model_list,rewards,pool,ARGS):
     #    mean = mean_list[i]
     #    sigma = sigma_list[i]
     #    optimize(gen,i,mean,sigma,model_list[i],save_mean_list,save_sigma_list,rewards[i],ARGS)
+
+def optimize_serial(gen,mean_list,sigma_list,model_list,rewards,ARGS):
+    save_mean_list = copy.deepcopy(mean_list)
+    save_sigma_list = copy.deepcopy(sigma_list)
+    for i in range(ARGS.lam):
+        optimize(gen,i,mean_list[i],sigma_list[i],model_list[i],save_mean_list,save_sigma_list,rewards[i],ARGS)

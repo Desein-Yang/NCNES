@@ -2,8 +2,8 @@
 # -*- encoding: utf-8 -*-
 """
 @File    :   main.py
-@Time    :   2020/02/01 17:58:21
-@Describtion:   main function to run experiment(normal way in parallel)
+@Time    :   2020/04/01 17:58:21
+@Describtion:   main function to run experiment(serially)
 """
 
 # here put the import lib
@@ -21,9 +21,9 @@ import torch.multiprocessing as mp
 import sys
 import matplotlib.pyplot as plt
 
-from src.optimizer import optimize_parallel
-from src.train import train,test
-from src.model import build_model, build_mean,build_sigma
+from src.optimizer import optimize_serial
+from src.train import train,train_serial,test
+from src.model import build_model,build_mean,build_sigma
 from src.util import mk_folder, save, load, setup_logging
 from src.vbn import explore_for_vbn
 
@@ -120,7 +120,6 @@ class ARGS(object):
             cls.eva_times = 1
         else:
             cls.eva_times = 3
-            cls.population_size = 10
         if gamename in ['Freeway','Enduro']:
             cls.phi = 0.001
         elif gamename in ['BeamRider','SpaceInvaders']:
@@ -135,7 +134,7 @@ class ARGS(object):
         if cls.env_type == "atari":
             cls.gamename = "%sNoFrameskip-v4" % gamename
             #cls.gamename = "%sDeterministic-v4" % gamename
-            
+
     @classmethod
     def set_folder_path(cls,folder_path):
         cls.folder_path = folder_path
@@ -143,39 +142,6 @@ class ARGS(object):
     @classmethod
     def set_logfile_name(cls,logfile_name):
         cls.logfile_name = cls.gamename.split('N')[0] + cls.namemark + "-phi-" + str(cls.phi) + "-lam-" + str(cls.lam) + "-mu-" + str(cls.population_size)+".txt"
-
-
-
-def build_sigma(model: torch.nn.Module, ARGS):
-    """Build a dict to store sigma of all params.  
-    Args:  
-        model(nn.Module):   Network module of offspring.
-        ARGS:               Sigma init value.
-    Returns:  
-        sigma_dict(dict):   Dict of sigma of all params.
-    Init:  
-        ones_like tensor * sigma_init.
-    """
-    sigma_dict = {}
-    for name, parameter in model.named_parameters():
-        sigma_dict[name] = torch.ones_like(parameter,dtype = torch.float) * ARGS.sigma_init
-    return sigma_dict
-
-def build_mean(model: torch.nn.Module,ARGS):
-    """Build a dict to store mean of all params.  
-    Args:  
-        model(nn.Module):   Network module of offspring.
-        ARGS:               High limit and low limit
-    Returns:  
-        mean_dict(dict):    Dict of mean of all params.  
-    Init:
-        mean= L + (H-L) *rand
-    """
-    mean_dict = {}
-    for name, parameter in model.named_parameters():
-        mean_dict[name] = torch.ones_like(parameter,dtype=torch.float) * ARGS.L + (ARGS.H - ARGS.L) * torch.rand_like(parameter,dtype=torch.float)
-        mean_dict[name] = torch.clamp(mean_dict[name],ARGS.L,ARGS.H)
-    return mean_dict
 
 def main(ARGS, logger, params):
     """Algorithms main procedures     
@@ -219,9 +185,6 @@ def main(ARGS, logger, params):
     mean_list = [build_mean(model_best,ARGS) for i in range(ARGS.lam)]
     sigma_list = [build_sigma(model_best, ARGS) for i in range(ARGS.lam)]
 
-    # init pool
-    pool = mp.Pool(processes=ARGS.ncpu)
-
     # vitural batch normalization
     refer_batch_torch = None
     if ARGS.env_type == "atari":
@@ -250,10 +213,10 @@ def main(ARGS, logger, params):
 
         # sample and evaluate
 
-        rewards_list, frame_count, models_list, noops_list, detail_rewards = train(
+        rewards_list, frame_count, models_list, noops_list, detail_rewards = train_serial(
             mean_list,
             sigma_list,
-            pool,env,
+            env,
             ARGS,
             refer_batch_torch,
             seed
@@ -270,64 +233,20 @@ def main(ARGS, logger, params):
         logger.info("Rewardlist mean:%s " % str(rewardlist_mean))
         logger.info("Rewardlist var :%s " % str(rewardlist_var))
         logger.info("DetailReward   :%s " % str(detail_rewards))
-  
-        # save best one model
-        index = np.array(rewards_list).argmax()
-        best_model_i, best_model_j = (
-            index // ARGS.population_size,
-            index % ARGS.population_size,
-        )
 
-        if rewards_list[best_model_i][best_model_j] > best_train_score:
-            best_train_score = rewards_list[best_model_i][best_model_j]
-            logger.info("BestTrainScore:%.1f " % (best_train_score))
-            
-            # Update best model 
-            test_rewards,test_timestep,test_noop_list,_= test(models_list[best_model_i][best_model_j],pool,env,ARGS,refer_batch_torch)
-
-            best_test_new = np.mean(np.array(test_rewards))            
-            # if best_test_new > best_test_score:
-            # save best model
-            best_test_score = best_test_new
-            savepath = save(models_list[best_model_i][best_model_j],ARGS.checkpoint_name,ARGS.folder_path,g)
-            model_best.load_state_dict(torch.load(savepath))
-            logger.info("BestTest(New)   :%.1f" % (best_test_score))
-            logger.info("Rewardlist(New) :%s  " % str(test_rewards))
-            logger.info("Update best model")
-            
-        if g % 3 == 0:
-            # test current best model for draw curve
-            test_rewards,_,_,_= test(model_best,pool,env,ARGS,refer_batch_torch)
-            test_rewards_mean = np.mean(np.array(test_rewards))
-            
-            # log for train curve
-            path = os.path.join(ARGS.folder_path,'train_curve.txt')
-            with open(path, "a") as f:
-                out = [str(g),str(timestep_count),str(best_train_score),str(best_test_score),str(np.mean(np.array(test_rewards))),str(np.max(np.array(test_rewards))),str(np.min(np.array(test_rewards)))]
-                sed = ','
-                f.write(sed.join(out)+'\n')
-            
         # calculate gradient and update distribution in parallel
-        optimize_parallel(g,mean_list,sigma_list,models_list,rewards_list,pool,ARGS)
+        optimize_serial(g,mean_list,sigma_list,models_list,rewards_list,ARGS)
 
         # check timestep
         if timestep_count > ARGS.timestep_limit:
             logger.info("Satisfied timestep limit")
             break
-
-    # test final best model
-    test_rewards,test_timestep,test_noop_list_,_= test(model_best,pool,env,ARGS,refer_batch_torch,test_times=30)
-    test_rewards_mean = np.mean(np.array(test_rewards))
-    logger.info("BestTest(Final) :%.1f" % (test_rewards_mean))
-    logger.info("Rewardlist(Final):%s  " % str(test_rewards))
     
-    pool.close()
-    pool.join()
     savepath = save(model_best, ARGS.checkpoint_name, ARGS.folder_path,g)
 
 
 @click.command()
-@click.option('--namemark', default='final')
+@click.option('--namemark',default="final")
 @click.option('--ncpu', default=40)
 @click.option('--sigma_init', default=2)
 @click.option('--phi', default=0.00001)
@@ -336,7 +255,8 @@ def main(ARGS, logger, params):
 @click.option('--lam',default=5)
 @click.option('--mu',default=15)
 @click.option('--game',default='Freeway')
-def tune_params(
+@click.option('--frame',default=1e8)
+def run(
     namemark,
     ncpu,
     mu,
@@ -345,7 +265,8 @@ def tune_params(
     lr_mean,
     lr_sigma,
     phi,
-    game
+    game,
+    frame
 ):
     """Set parameters for tuning.   
     Set up logger and folder path.    
@@ -364,10 +285,10 @@ def tune_params(
     """
     # set input parameters
     # env_list = ["BeamRider"]
-
     ARGS.env_type = "atari"
     ARGS.namemark = namemark
     ARGS.ncpu = ncpu
+    ARGS.timestep_limit = frame
 
     kwargs_list = []
     kwargs_list.append(
@@ -382,7 +303,7 @@ def tune_params(
     )
     
     # set folder path
-    folder_path = mk_folder(os.path.join(os.getcwd(), "log"))
+    folder_path = mk_folder(os.path.join(os.getcwd(), "serial_log"))
     print("start!")
 
     idx = 0
@@ -399,33 +320,8 @@ def tune_params(
         main(ARGS, logger, params)
         print("finish idx %s : %s for game:%s" % (idx, str(params), game))
         idx += 1
-            # draw_train_curve(game,ARGS)
-
-def draw_train_curve(game,ARGS):
-    path = ARGS.folder_path + "/train_curve.txt"
-    with open(path,'r') as f:
-        lines = f.readlines()
-        gen = []
-        for i,line in enumerate(lines):
-            line_split = line.split(',')
-            gen.append(int(line_split[0]))
-            timestep.append(int(line_split[1]))
-            best_train_score.append(float(line_split[2]))
-            best_test_score.append(float(line_split[3]))
-
-    fig, ax = plt.subplots()
-    ax.plot(timestep,best_train_score,label='model_best')
-    ax.plot(timestep,best_test_score,label='test_best')
-    
-    title = game
-    plt.title(title)
-    plt.xlabel('timestep')
-    plt.ylabel('score')
-    plt.legend()
-    plt.savefig(title+'-'+str(ARGS.phi)+'-'+'.png')
-    plt.show()
 
 if __name__ == "__main__":
-    tune_params()
+    run()
 
     

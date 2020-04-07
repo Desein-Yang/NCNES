@@ -11,11 +11,12 @@ import numpy as np
 import torch.multiprocessing as mp
 mp.set_sharing_strategy('file_system')
 import sys
-from train import train, test
-from model import build_model
-from main import ARGS
 import pickle
-from vbn import explore_for_vbn
+
+from src.train import train, test
+from src.model import build_model
+from src.main import ARGS
+from src.vbn import explore_for_vbn
 torch.set_num_threads(1)
 
 Small_value = -1000000
