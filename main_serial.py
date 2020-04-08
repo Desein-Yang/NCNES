@@ -120,6 +120,7 @@ class ARGS(object):
             cls.eva_times = 1
         else:
             cls.eva_times = 3
+            cls.population_size = 10
         if gamename in ['Freeway','Enduro']:
             cls.phi = 0.001
         elif gamename in ['BeamRider','SpaceInvaders']:

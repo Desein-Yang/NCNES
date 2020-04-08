@@ -1,0 +1,1 @@
+python main_serial.py --game Freeway --frame 5e6 --phi 0.001 --ncpu 1 --mu 15 --lam 5 & python main_serial.py --game Enduro --frame 5e6 --phi 0.001 --ncpu 1 --mu 15 --lam 5 &python main_serial.py --game BeamRider --frame 5e6 --phi 0.001 --ncpu 1 --mu 15 --lam 5

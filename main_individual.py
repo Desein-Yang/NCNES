@@ -22,7 +22,7 @@ import sys
 import matplotlib.pyplot as plt
 
 from src.optimizer import optimize_parallel
-from src.train import train,test
+from src.train import train_individual,train_individual_cpu,test
 from src.model import build_model, build_mean,build_sigma
 from src.util import mk_folder, save, load, setup_logging
 from src.vbn import explore_for_vbn
@@ -108,7 +108,7 @@ class ARGS(object):
         cls.action_n = env.action_space.n
         cls.checkpoint_name = gamename+"-phi-" + str(cls.phi) + "-lam-" + str(cls.lam) + "-mu-" + str(cls.population_size)
         
-        if gamename in ['Alien','Qbert','SpaceInvaders','BeamRider']:
+        if gamename in ['Alien','Qbert','SpaceInvaders']:
             cls.eva_times = 5
         elif gamename in ['Breakout','Seaquest']:
             cls.eva_times = 1
@@ -217,7 +217,7 @@ def main(ARGS, logger, params):
                 ARGS.eva_times = 10
 
         # sample and evaluate
-        rewards_list, frame_count, models_list, noops_list, detail_rewards = train(
+        rewards_list, frame_count, models_list, noops_list, detail_rewards = train_individual(
             mean_list,
             sigma_list,
             pool,env,

@@ -242,6 +242,120 @@ def train_parallel(mean_list, sigma_list, pool, env, ARGS, refer_batch, seed):
     return rewards_list, frame_count, models_list, noops_list, detail_rewards_list            
 
 
+def train_individual(mean_list, sigma_list, pool, env, ARGS, refer_batch, seed):
+    jobs = []
+    for idx, mean in enumerate(mean_list):
+        sigma = sigma_list[idx]
+        model = build_model(ARGS)
+        #seed = [np.random.randint(1,1000000) for i in range(ARGS.population_size)]
+        # create multiprocessing jobs
+        for k_id in range(ARGS.population_size):
+            jobs.append(pool.apply_async(
+                        get_reward_atari,
+                        (model,mean,sigma,env,seed[k_id],ARGS,refer_batch,None,False,False,)
+                    ))   
+
+    rewards_list, frame_list, models_list, noops_list,detail_rewards_list = [],[],[],[],[]
+    rewards ,frames, models, noops, detail_rewards= [],[],[],[],[]
+        
+    # get reward(evaluate)
+    print(len(jobs))
+    for idx,j in enumerate(jobs):
+        rewards.append(j.get()[0])
+        frames.append(j.get()[1])
+        models.append(j.get()[2])
+        noops.append(j.get()[3])
+        detail_rewards.append(j.get()[4])
+    print(frames)
+    for i in range(ARGS.lam):
+        mu = ARGS.population_size
+        rewards_list.append(rewards[i * mu:(i+1) * mu])
+        frame_list.append(frames[i * mu:(i+1) * mu])
+        models_list.append(models[i * mu:(i+1) * mu])
+        noops_list.append(noops[i * mu:(i+1) * mu])
+        detail_rewards_list.append(detail_rewards[i * mu:(i+1) * mu])
+    frame_count = np.sum(np.array(frame_list))
+    print(frame_count)
+    return rewards_list, frame_count, models_list, noops_list, detail_rewards_list
+
+
+def train_individual_cpu(mean_list, sigma_list, pool, env, ARGS, refer_batch, seed):
+    jobs = []
+    for idx, mean in enumerate(mean_list):
+        sigma = sigma_list[idx]
+        jobs = None
+        model = build_model(ARGS)
+        #seed = [np.random.randint(1,1000000) for i in range(ARGS.population_size)]
+        # create multiprocessing jobs
+        for k_id in range(ARGS.population_size):
+            # jobs.append(pool.apply_async(
+            #             get_reward_atari,
+            #             (model,mean,sigma,env,seed[k_id],ARGS,refer_batch,None,False,False,)
+            #         ))   
+            import affinity
+            p = mp.Process(target = get_reward_atari,args = (model,mean,sigma,env,seed[k_id],ARGS,refer_batch,None,False,False,))
+            p.start()
+            cpurank = affinity.get_process_affinity_mask(p.pid)  
+            affinity.set_process_affinity_mask(p.pid,cpurank)
+            p.join()
+
+    rewards_list, frame_list, models_list, noops_list,detail_rewards_list = [],[],[],[],[]
+    rewards ,frames, models, noops, detail_rewards= [],[],[],[],[]
+        
+    # get reward(evaluate)
+    for idx,j in enumerate(jobs):
+        rewards.append(j.get()[0])
+        frames.append(j.get()[1])
+        models.append(j.get()[2])
+        noops.append(j.get()[3])
+        detail_rewards.append(j.get()[4])
+    for i in range(ARGS.lam):
+        mu = ARGS.population_size
+        rewards_list.append(rewards[i * mu:(i+1) * mu])
+        frame_list.append(frames[i * mu:(i+1) * mu])
+        models_list.append(models[i * mu:(i+1) * mu])
+        noops_list.append(noops[i * mu:(i+1) * mu])
+        detail_rewards_list.append(detail_rewards[i * mu:(i+1) * mu])
+    frame_count = np.sum(np.array(frame_list))
+    return rewards_list, frame_count, models_list, noops_list, detail_rewards_list
+
+	                  
+def train_parallel_cpu(mean_list, sigma_list, pool, env, ARGS, refer_batch, seed):
+    """Evaluates all offsprings of all populations in parallel by population seperately.""" 
+    rewards_list,frame_list,models_list,noops_list,detail_rewards_list= [],[],[],[],[]
+    for idx, mean in enumerate(mean_list):
+        sigma = sigma_list[idx]
+        jobs = []
+        model = build_model(ARGS)
+        
+        #seed = [np.random.randint(1,1000000) for i in range(ARGS.population_size)]
+        # create multiprocessing jobs of population
+        for k_id in range(ARGS.population_size):
+            #jobs.append(pool.apply_async(
+            #            get_reward_atari,
+            #            (model,mean,sigma,env,seed[k_id],ARGS,refer_batch,None,False,False,)
+            #        )) 
+            p = mp.Process(target = get_reward_atari,args = (model,mean,sigma,env,seed[k_id],ARGS,refer_batch,None,False,False,))
+            p.start()
+            cpurank[k_id] = affinity.get_process_affinity_mask(p.pid)  
+            affinity.set_process_affinity_mask(p.pid,cpurank)
+            p.join()
+            
+        rewards ,frames, models, noops, detail_rewards= [],[],[],[],[]
+        for j in jobs:
+            rewards.append(j.get()[0])
+            frames.append(j.get()[1])
+            models.append(j.get()[2])
+            noops.append(j.get()[3])
+            detail_rewards.append(j.get()[4])
+        rewards_list.append(rewards)
+        frame_list.append(frames)
+        models_list.append(models)
+        noops_list.append(noops)
+        detail_rewards_list.append(detail_rewards)   
+             
+    frame_count = np.sum(np.array(frame_list))
+    return rewards_list, frame_count, models_list, noops_list, detail_rewards_list  
 
 def test(model, pool, env, ARGS, reference, noop=None, test_times=30, render=False):
     """Evaluate all offsprings in parallel.   
