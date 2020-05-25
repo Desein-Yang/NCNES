@@ -217,7 +217,7 @@ def main(ARGS, logger, params):
                 ARGS.eva_times = 10
 
         # sample and evaluate
-        rewards_list, frame_count, models_list, noops_list, detail_rewards = train_parallel(
+        rewards_list, frame_list, models_list, noops_list, detail_rewards, times = train_parallel(
             mean_list,
             sigma_list,
             pool,env,
@@ -225,6 +225,7 @@ def main(ARGS, logger, params):
             refer_batch_torch,
             seed
         )
+        frame_count = np.sum(np.array(frame_list))
         timestep_count += frame_count
         rewardlist_mean = [np.mean(rewards_list[i]) for i in range(ARGS.lam)]
         rewardlist_var = [np.var(rewards_list[i]) for i in range(ARGS.lam)]
@@ -237,6 +238,9 @@ def main(ARGS, logger, params):
         logger.info("Rewardlist mean:%s " % str(rewardlist_mean))
         logger.info("Rewardlist var :%s " % str(rewardlist_var))
         logger.info("DetailReward   :%s " % str(detail_rewards))
+        logger.info("Frame list     :%s " % str(frame_list))
+        logger.info("Time list      :%s " % str(times))
+
   
         # save best one model
         index = np.array(rewards_list).argmax()

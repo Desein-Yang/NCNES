@@ -23,6 +23,7 @@ import matplotlib.pyplot as plt
 
 from src.optimizer import optimize_parallel
 from src.train import train_individual,train_individual_cpu,test
+from src.train import train_parallel,train_serial
 from src.model import build_model, build_mean,build_sigma
 from src.util import mk_folder, save, load, setup_logging
 from src.vbn import explore_for_vbn
@@ -79,6 +80,8 @@ class ARGS(object):
     checkpoint_name = ""
     logfile_name = ""
     Small_value = -1000000
+
+    parallel = None # i,p,s
 
     @classmethod
     def output(cls):
@@ -217,7 +220,8 @@ def main(ARGS, logger, params):
                 ARGS.eva_times = 10
 
         # sample and evaluate
-        rewards_list, frame_count, models_list, noops_list, detail_rewards = train_individual(
+        if ARGS.parallel == "i":
+            rewards_list, frame_list, models_list, noops_list, detail_rewards, times = train_individual(
             mean_list,
             sigma_list,
             pool,env,
@@ -225,6 +229,27 @@ def main(ARGS, logger, params):
             refer_batch_torch,
             seed
         )
+        elif ARGS.parallel == "s":
+            rewards_list, frame_list, models_list, noops_list, detail_rewards, times = train_serial(
+            mean_list,
+            sigma_list,
+            env,
+            ARGS,
+            refer_batch_torch,
+            seed
+        )
+        elif ARGS.parallel == "p":
+            rewards_list, frame_list, models_list, noops_list, detail_rewards, times = train_parallel(
+            mean_list,
+            sigma_list,
+            pool,env,
+            ARGS,
+            refer_batch_torch,
+            seed
+        )
+        else:
+            print("parallel model setting error!")
+        frame_count = np.sum(np.array(frame_list))
         timestep_count += frame_count
         rewardlist_mean = [np.mean(rewards_list[i]) for i in range(ARGS.lam)]
         rewardlist_var = [np.var(rewards_list[i]) for i in range(ARGS.lam)]
@@ -236,7 +261,9 @@ def main(ARGS, logger, params):
         logger.info("Noops list     :%s " % str(noops_list))
         logger.info("Rewardlist mean:%s " % str(rewardlist_mean))
         logger.info("Rewardlist var :%s " % str(rewardlist_var))
-        logger.info("DetailReward   :%s " % str(detail_rewards))
+        logger.info("DetailReward   :%s " % str(detail_rewards))        
+        logger.info("Frame list     :%s " % str(frame_list))
+        logger.info("Time list      :%s " % str(times))
   
         # save best one model
         index = np.array(rewards_list).argmax()
@@ -244,6 +271,36 @@ def main(ARGS, logger, params):
             index // ARGS.population_size,
             index % ARGS.population_size,
         )
+
+        if rewards_list[best_model_i][best_model_j] > best_train_score:
+            best_train_score = rewards_list[best_model_i][best_model_j]
+            logger.info("BestTrainScore:%.1f " % (best_train_score))
+            
+            # Update best model 
+            model_best = models_list[best_model_i][best_model_j].copy()
+            test_rewards,test_timestep,test_noop_list,_= test(model_best,pool,env,ARGS,refer_batch_torch)
+
+            best_test_new = np.mean(np.array(test_rewards))            
+            # if best_test_new > best_test_score:
+            # save best model
+            best_test_score = best_test_new
+            savepath = save(model_best,ARGS.checkpoint_name,ARGS.folder_path,g)
+            logger.info("BestTest(New)   :%.1f" % (best_test_score))
+            logger.info("Rewardlist(New) :%s  " % str(test_rewards))
+            logger.info("Update best model")
+            
+        if g % 3 == 0:
+            # test current best model for draw curve
+            test_rewards,_,_,_= test(model_best,pool,env,ARGS,refer_batch_torch)
+            test_rewards_mean = np.mean(np.array(test_rewards))
+            
+            # log for train curve
+            path = os.path.join(ARGS.folder_path,'train_curve.txt')
+            with open(path, "a") as f:
+                out = [str(g),str(timestep_count),str(best_train_score),str(best_test_score),str(np.mean(np.array(test_rewards))),str(np.max(np.array(test_rewards))),str(np.min(np.array(test_rewards)))]
+                sed = ','
+                f.write(sed.join(out)+'\n')
+            
 
         # calculate gradient and update distribution in parallel
         optimize_parallel(g,mean_list,sigma_list,models_list,rewards_list,pool,ARGS)
@@ -269,6 +326,7 @@ def main(ARGS, logger, params):
 @click.option('--mu',default=15)
 @click.option('--game',default='Freeway')
 @click.option('--frame',default=1e8)
+@click.option('--parallel',default='p')
 def run(
     namemark,
     ncpu,
@@ -279,7 +337,8 @@ def run(
     lr_sigma,
     phi,
     game,
-    frame
+    frame,
+    parallel
 ):
     """Set parameters for tuning.   
     Set up logger and folder path.    
@@ -295,11 +354,14 @@ def run(
         lr_sigma(float):   Learning rate of sigma. Default:0.01.  
         eva_times(int):    Evaluate times. Default:3.  
         phi(float):        Negative correlation.
+        frame(int):        Total frame limit.
+        parallel(str):     Parallel model(serially,parallel,individual).
     """
     # set input parameters
     ARGS.env_type = "atari"
     ARGS.namemark = namemark
     ARGS.ncpu = ncpu
+    ARGS.parallel = parallel
 
     kwargs_list = []
     kwargs_list.append(
@@ -315,7 +377,15 @@ def run(
     )
     
     # set folder path
-    folder_path = mk_folder(os.path.join(os.getcwd(), "individual_log"))
+    if ARGS.parallel == 'i':
+        folder_name = "individual_log"
+    elif ARGS.parallel == 's':
+        folder_name = "serial_log"
+    elif ARGS.parallel == 'p':
+        folder_name = "paralel_log"
+    else:
+        print("parallel model setting error")
+    folder_path = mk_folder(os.path.join(os.getcwd(), folder_name))
     print("start!")
 
     idx = 0

@@ -86,6 +86,7 @@ def get_reward_atari(
     env.frameskip = 1
     ep_r_list = []
     frame_count = 0
+    start_time = time.time()
 
     # init preprocess
     ProcessU = ProcessUnit()
@@ -125,10 +126,11 @@ def get_reward_atari(
         ep_r_list.append(ep_r)
     
     ep_r = sum(ep_r_list) / eva_times
+    ep_time = int(time.time() - start_time)
     if (test is True) or (mean is None) or (sigma is None):
         return ep_r, frame_count, no_op, ep_r_list
     else:
-        return ep_r, frame_count, model, no_op, ep_r_list
+        return ep_r, frame_count, model, no_op, ep_r_list, ep_time
 
 def train(mean_list, sigma_list, pool, env, ARGS, refer_batch, seed):
     """Evaluates all offsprings of all populations in parallel by offspring seperately.   
@@ -168,31 +170,33 @@ def train(mean_list, sigma_list, pool, env, ARGS, refer_batch, seed):
     models_list = []
     noops_list = []
     detail_rewards_list = []
-
+    time_list = []
     # get reward(evaluate)
     for idx, jobs in enumerate(jobs_list):
-        rewards ,frames, models, noops, detail_rewards= [],[],[],[],[]
+        rewards ,frames, models, noops, detail_rewards, times= [],[],[],[],[],[]
         for j in jobs:
             rewards.append(j.get()[0])
             frames.append(j.get()[1])
             models.append(j.get()[2])
             noops.append(j.get()[3])
             detail_rewards.append(j.get()[4])
+            times.append(j.get()[5])
         rewards_list.append(rewards)
         frame_list.append(frames)
         models_list.append(models)
         noops_list.append(noops)
         detail_rewards_list.append(detail_rewards)
+        time_list.append(times)
         
     frame_count = np.sum(np.array(frame_list))
-    return rewards_list, frame_count, models_list, noops_list, detail_rewards_list
+    return rewards_list, frame_count, models_list, noops_list, detail_rewards_list, time_list
 
 def train_serial(mean_list, sigma_list, env, ARGS, refer_batch, seed):
     """Evaluates all models one by one. """
-    rewards_list, frame_list, models_list, noop_list, detail_rewards_list= [],[],[],[],[]
+    rewards_list, frame_list, models_list, noop_list, detail_rewards_list, times_list= [],[],[],[],[],[]
     for idx, mean in enumerate(mean_list):
         sigma = sigma_list[idx]
-        rewards ,frames, models, noops, detail_rewards= [],[],[],[],[]
+        rewards ,frames, models, noops, detail_rewards, times= [],[],[],[],[],[]
         for k_id in range(ARGS.population_size):
             basemodel = build_model(ARGS)
             ep_r, frame, model, noop, ep_r_list = get_reward_atari(basemodel,mean,sigma,env,seed[k_id],ARGS,refer_batch,None,False,False)
@@ -206,12 +210,13 @@ def train_serial(mean_list, sigma_list, env, ARGS, refer_batch, seed):
         models_list.append(models)
         noop_list.append(noops)
         detail_rewards_list.append(detail_rewards)
+        times_list.append(times)
     frame_count = np.sum(np.array(frame_list))
-    return rewards_list, frame_count, models_list, noop_list, detail_rewards_list        
+    return rewards_list, frame_count, models_list, noop_list, detail_rewards_list, times        
                   
 def train_parallel(mean_list, sigma_list, pool, env, ARGS, refer_batch, seed):
     """Evaluates all offsprings of all populations in parallel by population seperately.""" 
-    rewards_list,frame_list,models_list,noops_list,detail_rewards_list= [],[],[],[],[]
+    rewards_list,frame_list,models_list,noops_list,detail_rewards_list,times_list= [],[],[],[],[],[]
     for idx, mean in enumerate(mean_list):
         sigma = sigma_list[idx]
         jobs = []
@@ -225,22 +230,23 @@ def train_parallel(mean_list, sigma_list, pool, env, ARGS, refer_batch, seed):
                         (model,mean,sigma,env,seed[k_id],ARGS,refer_batch,None,False,False,)
                     )) 
         
-        rewards ,frames, models, noops, detail_rewards= [],[],[],[],[]
+        rewards ,frames, models, noops, detail_rewards,times= [],[],[],[],[],[]
         for j in jobs:
             rewards.append(j.get()[0])
             frames.append(j.get()[1])
             models.append(j.get()[2])
             noops.append(j.get()[3])
             detail_rewards.append(j.get()[4])
+            times.append(j.get()[5])
         rewards_list.append(rewards)
         frame_list.append(frames)
         models_list.append(models)
         noops_list.append(noops)
         detail_rewards_list.append(detail_rewards)   
+        times_list.append(times)
              
     frame_count = np.sum(np.array(frame_list))
-    return rewards_list, frame_count, models_list, noops_list, detail_rewards_list            
-
+    return rewards_list, frame_count, models_list, noops_list, detail_rewards_list,times_list           
 
 def train_individual(mean_list, sigma_list, pool, env, ARGS, refer_batch, seed):
     jobs = []
@@ -255,8 +261,8 @@ def train_individual(mean_list, sigma_list, pool, env, ARGS, refer_batch, seed):
                         (model,mean,sigma,env,seed[k_id],ARGS,refer_batch,None,False,False,)
                     ))   
 
-    rewards_list, frame_list, models_list, noops_list,detail_rewards_list = [],[],[],[],[]
-    rewards ,frames, models, noops, detail_rewards= [],[],[],[],[]
+    rewards_list, frame_list, models_list, noops_list,detail_rewards_list, times_list = [],[],[],[],[],[]
+    rewards ,frames, models, noops, detail_rewards, times= [],[],[],[],[]
         
     # get reward(evaluate)
     print(len(jobs))
@@ -266,6 +272,7 @@ def train_individual(mean_list, sigma_list, pool, env, ARGS, refer_batch, seed):
         models.append(j.get()[2])
         noops.append(j.get()[3])
         detail_rewards.append(j.get()[4])
+        times.append(j.get()[4])
     print(frames)
     for i in range(ARGS.lam):
         mu = ARGS.population_size
@@ -274,10 +281,10 @@ def train_individual(mean_list, sigma_list, pool, env, ARGS, refer_batch, seed):
         models_list.append(models[i * mu:(i+1) * mu])
         noops_list.append(noops[i * mu:(i+1) * mu])
         detail_rewards_list.append(detail_rewards[i * mu:(i+1) * mu])
+        times_list.append(times[i * mu:(i+1) * mu])
     frame_count = np.sum(np.array(frame_list))
     print(frame_count)
-    return rewards_list, frame_count, models_list, noops_list, detail_rewards_list
-
+    return rewards_list, frame_count, models_list, noops_list, detail_rewards_list, times_list
 
 def train_individual_cpu(mean_list, sigma_list, pool, env, ARGS, refer_batch, seed):
     jobs = []
@@ -318,7 +325,6 @@ def train_individual_cpu(mean_list, sigma_list, pool, env, ARGS, refer_batch, se
         detail_rewards_list.append(detail_rewards[i * mu:(i+1) * mu])
     frame_count = np.sum(np.array(frame_list))
     return rewards_list, frame_count, models_list, noops_list, detail_rewards_list
-
 	                  
 def train_parallel_cpu(mean_list, sigma_list, pool, env, ARGS, refer_batch, seed):
     """Evaluates all offsprings of all populations in parallel by population seperately.""" 

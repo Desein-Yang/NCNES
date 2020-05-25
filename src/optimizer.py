@@ -114,8 +114,6 @@ def optimize(gen,idx,mean, sigma, model_list, mean_list, sigma_list, rewards,ARG
             tmp1 = sigma_inverse*noise*noise*sigma_inverse
             tmp1 = torch.clamp(tmp1,0.0001,1000)
             tmp_ = tmp1 - sigma_inverse
-            
-
 
             fmean[name].add_(sigma_inverse*noise*utility[k])
             fsigma[name].add_(tmp_*utility[k])
