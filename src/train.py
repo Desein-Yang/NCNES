@@ -262,10 +262,9 @@ def train_individual(mean_list, sigma_list, pool, env, ARGS, refer_batch, seed):
                     ))   
 
     rewards_list, frame_list, models_list, noops_list,detail_rewards_list, times_list = [],[],[],[],[],[]
-    rewards ,frames, models, noops, detail_rewards, times= [],[],[],[],[]
+    rewards ,frames, models, noops, detail_rewards, times= [],[],[],[],[],[]
         
     # get reward(evaluate)
-    print(len(jobs))
     for idx,j in enumerate(jobs):
         rewards.append(j.get()[0])
         frames.append(j.get()[1])
@@ -273,7 +272,6 @@ def train_individual(mean_list, sigma_list, pool, env, ARGS, refer_batch, seed):
         noops.append(j.get()[3])
         detail_rewards.append(j.get()[4])
         times.append(j.get()[4])
-    print(frames)
     for i in range(ARGS.lam):
         mu = ARGS.population_size
         rewards_list.append(rewards[i * mu:(i+1) * mu])
@@ -283,7 +281,6 @@ def train_individual(mean_list, sigma_list, pool, env, ARGS, refer_batch, seed):
         detail_rewards_list.append(detail_rewards[i * mu:(i+1) * mu])
         times_list.append(times[i * mu:(i+1) * mu])
     frame_count = np.sum(np.array(frame_list))
-    print(frame_count)
     return rewards_list, frame_count, models_list, noops_list, detail_rewards_list, times_list
 
 def train_individual_cpu(mean_list, sigma_list, pool, env, ARGS, refer_batch, seed):

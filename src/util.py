@@ -82,18 +82,11 @@ def setup_logging(logger,folder_path,filename,txtlog=True,scrlog=False):
 
     return logger
 
-def mk_folder(LogFolder):
-    '''make folder to save log'''
-    timenow = time.localtime(time.time())
-    indx = 1
-    #GameFolder = os.path.join(LogFolder,gamename)
-    #if gamename not in os.listdir(LogFolder):
-    #    os.mkdir(GameFolder)
-    logfolder = str(timenow.tm_year)+'-'+str(timenow.tm_mon)+'-'+str(timenow.tm_mday)+'-'+str(indx)
-    while logfolder in os.listdir(LogFolder):
-        indx += 1
-        logfolder = str(timenow.tm_year)+'-'+str(timenow.tm_mon)+'-'+str(timenow.tm_mday)+'-'+str(indx)
-    logfolder_path = os.path.join(LogFolder, logfolder)
-    os.mkdir(logfolder_path)
-    print("make folder:", logfolder_path)
-    return logfolder_path
+
+def mk_folder(log_dir):
+    if not os.path.exists(log_dir):
+        try:
+            os.makedirs(log_dir)
+        except FileExistsError:
+            pass
+    return log_dir

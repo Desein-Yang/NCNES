@@ -1,36 +1,36 @@
 Negative Correlated Natural Evolution Strategy
 ===========================
-#### Describution
-This repository contains PyTorch implementations of Deep Reinforcement Learning with 'Negative Correlated Natural Evolution Strategy'(NCNES) algorithms.
+#### 代码说明
+
+本文件夹包含Negative Correlated Natural Evolution Strategy(NCNES) 算法的pytorch实现
+
+This code contains PyTorch implementations of Deep Reinforcement Learning with 'Negative Correlated Natural Evolution Strategy'(NCNES) algorithms.
 
 #### Dependency
-- gym0.12.1
-- pytorch1.0.1
-- python3.6.5
+- gym 0.12.1
+- pytorch1.0
+- python 3.6
 
-All Dependency can be imported by anaconda environment with environment.yml
+All Dependency can be imported by anaconda environment with requirement
 
 #### Usage
 ```python main.py
-python main.py 
+python main.py [--game][--ncpu][--lam][--mu][--parallel][--lr_mean][--lr_sigma][--phi][--sigma_init][--eva]
 [game]     Freeway,Enduro,Qbert,Alien..., default = Freeways
-[ncpu]     numbers of cpu. default = 40 
+[ncpu]     numbers of cpu. default = 40
+[lam]      numbers of population size. default = 5 
+[mu]       numbers of offsprings in a population. default = 15
+[parallel] parallel mode, default = p(parallel),option = s(serial), i(individual)
 [lr_mean]  learning rate of mean. default= 0.2 
 [lr_sigma] laerning rate of sigma. default = 0.1 
 [phi]      negative correlated search factor.default= 0.0001 
 [sigma_init] initialization value of sigma. default= 2  
 [eva]      max evaluate times.defalut = 3  
-[lam]      numbers of population size. default = 5 
-[mu]       numbers of offsprings in a population. default = 15
-[parallel] parallel mode, default = p(parallel),option = s(serial), i(individual)
 ```
 
 #### File Tree
 ├── readme.md                   // help  
-├── log                         // log  
-│   ├── namemark-time-phi-ft    // log  
-│   ├── namemark-game-seed.pt   // pytorch saved model   
-│   └── state.txt               // state log  
+├── log                         // logmodel  
 ├── src  
 │   ├──__init__.py              // init file  
 │   ├── model.py                // class of neural network (model)   
