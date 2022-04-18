@@ -76,5 +76,4 @@ The experiment repeated for 3 times and scores are shown in Table 1.
 12. Intergrate `main_all`      Run all parallel mode in one file
 
 #### Reference
-\[1\] Peng Yang, Ke Tang, Xin Yao, "Negatively Correlated Search as a Parallel Exploration Search Strategy", arXiv-https://arxiv.org/abs/1910.07151, 2019
-
+\[1\] Yang, P., Yang, Q., Tang, K. et al. Parallel exploration via negatively correlated search. Front. Comput. Sci. 15, 155333 (2021). https://doi.org/10.1007/s11704-020-0431-0
