@@ -1,8 +1,6 @@
 Negative Correlated Natural Evolution Strategy
 ===========================
-#### 代码说明
 
-本文件夹包含Negative Correlated Natural Evolution Strategy(NCNES) 算法的pytorch实现
 
 This code contains PyTorch implementations of Deep Reinforcement Learning with 'Negative Correlated Natural Evolution Strategy'(NCNES) algorithms.
 
@@ -29,18 +27,18 @@ python main.py [--game][--ncpu][--lam][--mu][--parallel][--lr_mean][--lr_sigma][
 ```
 
 #### File Tree
-├── readme.md                   // help  
-├── log                         // logmodel  
-├── src  
-│   ├──__init__.py              // init file  
-│   ├── model.py                // class of neural network (model)   
-│   ├── optimizer.py            // optimize and update function   
-│   ├── preprocess.py           // class of preprocess transform  
+├── readme.md                   // help   
+├── log                         // logmodel    
+├── src    
+│   ├──__init__.py              // init file    
+│   ├── model.py                // class of neural network (model)     
+│   ├── optimizer.py            // optimize and update function     
+│   ├── preprocess.py           // class of preprocess transform   
 │   ├── train.py                // train and test function   
-│   ├── util.py                 // other function   
-│   └── vbn.py                  // class and function about vitural batch   
-├── environment.yml             // dependenct Installation file
-└── main_all.py                 // run 
+│   ├── util.py                 // other function    
+│   └── vbn.py                  // class and function about vitural batch    
+├── environment.yml             // dependenct Installation file 
+└── main_all.py                 // run  
 
 #### Results
 
